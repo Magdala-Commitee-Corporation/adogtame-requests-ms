@@ -1,0 +1,17 @@
+{
+  "name": "adogtame-requests-ms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "sst dev --stage dev",
+    "deploy:dev": "sst deploy --stage dev",
+    "deploy:prod": "sst deploy --stage prod"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.164",
+    "@types/node": "^26.6.6",
+    "sst": "^4.17.2",
+    "typescript": "^7.0.2"
+  }
+}
