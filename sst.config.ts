@@ -36,6 +36,29 @@ export default $config({
     // Public functions: 30 s (I0.2, adog_ARCH.md §4.4).
     api.route("GET /health", { handler: "src/handlers/health.handler", timeout: "30 seconds", environment: { STAGE: $app.stage } });
 
-    return { api: api.url };
+    // Events (adog_ARCH.md §4.2): one queue per consumer, DLQ after 5 attempts.
+    // Consumers time out at 60 s; SQS hides a message for 6x that time.
+    const topicArn = (publisher: string) =>
+      aws.ssm.getParameterOutput({
+        name: `/adogtame/${$app.stage}/topics/${publisher}-events-arn`,
+      }).value;
+
+    const eventsDlq = new sst.aws.Queue("EventsDlq");
+    const events = new sst.aws.Queue("Events", {
+      visibilityTimeout: "6 minutes",
+      dlq: { queue: eventsDlq.arn, retry: 5 },
+    });
+    events.subscribe({ handler: "src/handlers/events.handler", timeout: "60 seconds" });
+    sst.aws.SnsTopic.get("DogsEvents", topicArn("dogs")).subscribeQueue("DogsEventsToQueue", events, {
+      filter: { tipo: ["PerroAdoptado", "PerroEliminado"] },
+    });
+    sst.aws.SnsTopic.get("AuthEvents", topicArn("auth")).subscribeQueue("AuthEventsToQueue", events, {
+      filter: { tipo: ["CuentaEliminada"] },
+    });
+    sst.aws.SnsTopic.get("RequestsEvents", topicArn("requests")).subscribeQueue("RequestsEventsToQueue", events, {
+      filter: { tipo: ["CorreoSolicitado"] },
+    });
+
+    return { api: api.url, eventsQueue: events.url, eventsDlq: eventsDlq.url };
   },
 });
